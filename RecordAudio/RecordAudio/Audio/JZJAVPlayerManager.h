@@ -8,6 +8,8 @@
 
 #import <Foundation/Foundation.h>
 
+typedef void (^JZJAVPlayerManagerBlock)(float p);
+
 typedef enum {
     
     JZJAVPlayError_None,                         //无错误
@@ -19,6 +21,8 @@ typedef enum {
 } JZJAVPlayError;
 
 @interface JZJAVPlayerManager : NSObject
+
+@property(nonatomic, copy)JZJAVPlayerManagerBlock block;
 
 /**
  单利

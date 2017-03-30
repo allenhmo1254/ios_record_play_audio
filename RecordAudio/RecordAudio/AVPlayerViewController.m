@@ -11,6 +11,8 @@
 
 @interface AVPlayerViewController ()
 
+@property(nonatomic, strong)UILabel *label;
+
 @end
 
 @implementation AVPlayerViewController
@@ -43,11 +45,22 @@
     [pauseButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
     [pauseButton addTarget:self action:@selector(pauseButtonClick) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:pauseButton];
+    
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(self.view.frame.size.width / 2 - width / 2, 350, width, height)];
+    label.textColor = [UIColor blackColor];
+    label.textAlignment = NSTextAlignmentCenter;
+    label.font = [UIFont systemFontOfSize:15];
+    [self.view addSubview:label];
+    self.label = label;
 }
 
 -(void)loadButtonClick
 {
     [[JZJAVPlayerManager shareInstance] loadWithURL:[NSURL URLWithString:@"https://nj01ct01.baidupcs.com/file/67e08e7b3db5bd550eb2c3077bc9341d?bkt=p3-140067e08e7b3db5bd550eb2c3077bc9341da3ab7671000000286647&fid=2670780510-250528-430066337834612&time=1490876687&sign=FDTAXGERLBHS-DCb740ccc5511e5e8fedcff06b081203-ouFLOl6a8eNSZiRGNRm92wOoPn8%3D&to=63&size=2647623&sta_dx=2647623&sta_cs=0&sta_ft=mp3&sta_ct=0&sta_mt=0&fm2=MH,Yangquan,Netizen-anywhere,,beijingct&newver=1&newfm=1&secfm=1&flow_ver=3&pkey=140067e08e7b3db5bd550eb2c3077bc9341da3ab7671000000286647&sl=70189134&expires=8h&rt=pr&r=324544785&mlogid=2060694999951594697&vuk=2670780510&vbdid=3060741257&fin=test.mp3&fn=test.mp3&rtype=1&iv=0&dp-logid=2060694999951594697&dp-callid=0.1.1&hps=1&csl=240&csign=6sh0mTdY5aOsbum91qLSCZU%2BQRU%3D&by=themis"]];
+    [JZJAVPlayerManager shareInstance].block = ^(float p)
+    {
+        self.label.text = [NSString stringWithFormat:@"加载进度:%.2f",p];
+    };
 }
 
 -(void)playButtonClick

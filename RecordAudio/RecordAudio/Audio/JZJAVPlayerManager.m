@@ -68,7 +68,16 @@ static JZJAVPlayerManager *instance = nil;
     
     [self.player play];
     
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryPlayback isActive:YES];
+    AVAudioSession *audioSession=[AVAudioSession sharedInstance];
+    
+    [audioSession setCategory:AVAudioSessionCategoryPlayAndRecord
+                  withOptions:AVAudioSessionCategoryOptionMixWithOthers
+                        error:nil];
+    if (![self _isHeadsetPluggedIn]) {//没有插入耳机时，设置为使用扬声器输出
+        [audioSession overrideOutputAudioPort:AVAudioSessionPortOverrideSpeaker error:nil];
+    }
+    
+    //[self _setupAudioSessionCategory:AVAudioSessionCategoryPlayback isActive:YES];
     
     return YES;
 }
@@ -98,6 +107,7 @@ static JZJAVPlayerManager *instance = nil;
         float total = CMTimeGetSeconds(weakPlayer.currentItem.duration);
         NSLog(@"current = %f, total = %f",current, total);
     }];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(audioRouteChangeListenerCallback:) name:AVAudioSessionRouteChangeNotification object:nil];
 }
 
 -(void)_removeObservers
@@ -123,6 +133,9 @@ static JZJAVPlayerManager *instance = nil;
     if (![_currCategory isEqualToString:sessionCategory]) {
         [audioSession setCategory:sessionCategory error:nil];
     }
+    if (![self _isHeadsetPluggedIn]) {//没有插入耳机时，设置为使用扬声器输出
+        [audioSession overrideOutputAudioPort:AVAudioSessionPortOverrideSpeaker error:nil];
+    }
     if (isNeedActive) {
         BOOL success = [audioSession setActive:isActive
                                    withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
@@ -135,6 +148,15 @@ static JZJAVPlayerManager *instance = nil;
     _currCategory = sessionCategory;
     
     return returnError;
+}
+
+- (BOOL)_isHeadsetPluggedIn {
+    AVAudioSessionRouteDescription* route = [[AVAudioSession sharedInstance] currentRoute];
+    for (AVAudioSessionPortDescription* desc in [route outputs]) {
+        if ([[desc portType] isEqualToString:AVAudioSessionPortHeadphones])
+            return YES;
+    }
+    return NO;
 }
 
 #pragma mark - kvo
@@ -165,6 +187,38 @@ static JZJAVPlayerManager *instance = nil;
         CMTimeRange timeRange = [array.firstObject CMTimeRangeValue]; //本次缓冲的时间范围
         NSTimeInterval totalBuffer = CMTimeGetSeconds(timeRange.start) + CMTimeGetSeconds(timeRange.duration); //缓冲总长度
         NSLog(@"totalBuffer = %.2f, total = %.2f",totalBuffer,total);
+        if (self.block) {
+            self.block(totalBuffer / total);
+        }
+    }
+}
+
+- (void)audioRouteChangeListenerCallback:(NSNotification*)notification
+{
+    NSDictionary *interuptionDict = notification.userInfo;
+    NSInteger routeChangeReason = [[interuptionDict valueForKey:AVAudioSessionRouteChangeReasonKey] integerValue];
+    switch (routeChangeReason) {
+        case AVAudioSessionRouteChangeReasonNewDeviceAvailable://耳机插入
+        {
+            [self play];
+        }
+            break;
+        case AVAudioSessionRouteChangeReasonOldDeviceUnavailable://耳机拔出
+        {
+            AVAudioSession *audioSession=[AVAudioSession sharedInstance];
+            
+            [audioSession setCategory:AVAudioSessionCategoryPlayAndRecord
+                          withOptions:AVAudioSessionCategoryOptionMixWithOthers
+                                error:nil];
+            // 设置为使用扬声器输出
+            [audioSession overrideOutputAudioPort:AVAudioSessionPortOverrideSpeaker error:nil];
+            
+        }
+            break;
+        case AVAudioSessionRouteChangeReasonCategoryChange:
+            // called at start - also when other audio wants to play
+            NSLog(@"AVAudioSessionRouteChangeReasonCategoryChange");
+            break;
     }
 }
 
