@@ -7,7 +7,9 @@
 //
 
 #import "AVPlayerViewController.h"
-#import "JZJAVPlayerManager.h"
+#import "JZJAudioPlayManager.h"
+#import "JZJAudioSession.h"
+#import <AVFoundation/AVFoundation.h>
 
 @interface AVPlayerViewController ()
 
@@ -25,12 +27,19 @@
     
     CGFloat width = 100, height = 40;
     
-    UIButton *loadButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    loadButton.frame = CGRectMake(self.view.frame.size.width / 2 - width / 2, 100, width, height);
-    [loadButton setTitle:@"加载" forState:UIControlStateNormal];
-    [loadButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
-    [loadButton addTarget:self action:@selector(loadButtonClick) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:loadButton];
+    UIButton *localButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    localButton.frame = CGRectMake(self.view.frame.size.width / 2 - width - 50, 100, width, height);
+    [localButton setTitle:@"本地" forState:UIControlStateNormal];
+    [localButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    [localButton addTarget:self action:@selector(localButtonClick) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:localButton];
+    
+    UIButton *httpButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    httpButton.frame = CGRectMake(self.view.frame.size.width / 2 + 50, 100, width, height);
+    [httpButton setTitle:@"网络" forState:UIControlStateNormal];
+    [httpButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    [httpButton addTarget:self action:@selector(httpButtonClick) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:httpButton];
     
     UIButton *playButton = [UIButton buttonWithType:UIButtonTypeCustom];
     playButton.frame = CGRectMake(self.view.frame.size.width / 2 - width / 2, 170, width, height);
@@ -46,6 +55,13 @@
     [pauseButton addTarget:self action:@selector(pauseButtonClick) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:pauseButton];
     
+    UIButton *stopButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    stopButton.frame = CGRectMake(self.view.frame.size.width / 2 - width / 2, 320, width, height);
+    [stopButton setTitle:@"stop" forState:UIControlStateNormal];
+    [stopButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    [stopButton addTarget:self action:@selector(stopButtonClick) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:stopButton];
+    
     UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(self.view.frame.size.width / 2 - width / 2, 350, width, height)];
     label.textColor = [UIColor blackColor];
     label.textAlignment = NSTextAlignmentCenter;
@@ -54,38 +70,39 @@
     self.label = label;
 }
 
--(void)loadButtonClick
+-(void)localButtonClick
 {
-    [[JZJAVPlayerManager shareInstance] loadWithURL:[NSURL URLWithString:@"https://nj01ct01.baidupcs.com/file/67e08e7b3db5bd550eb2c3077bc9341d?bkt=p3-140067e08e7b3db5bd550eb2c3077bc9341da3ab7671000000286647&fid=2670780510-250528-430066337834612&time=1490876687&sign=FDTAXGERLBHS-DCb740ccc5511e5e8fedcff06b081203-ouFLOl6a8eNSZiRGNRm92wOoPn8%3D&to=63&size=2647623&sta_dx=2647623&sta_cs=0&sta_ft=mp3&sta_ct=0&sta_mt=0&fm2=MH,Yangquan,Netizen-anywhere,,beijingct&newver=1&newfm=1&secfm=1&flow_ver=3&pkey=140067e08e7b3db5bd550eb2c3077bc9341da3ab7671000000286647&sl=70189134&expires=8h&rt=pr&r=324544785&mlogid=2060694999951594697&vuk=2670780510&vbdid=3060741257&fin=test.mp3&fn=test.mp3&rtype=1&iv=0&dp-logid=2060694999951594697&dp-callid=0.1.1&hps=1&csl=240&csign=6sh0mTdY5aOsbum91qLSCZU%2BQRU%3D&by=themis"]];
-    [JZJAVPlayerManager shareInstance].block = ^(float p)
-    {
-        self.label.text = [NSString stringWithFormat:@"加载进度:%.2f",p];
-    };
+    NSString *file = [[NSBundle mainBundle] pathForResource:@"test.mp3" ofType:nil];
+    [[JZJAudioPlayManager shareInstance] playWithPath:file completion:nil];
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryPlayback isActive:YES];
+}
+
+-(void)httpButtonClick
+{
+    NSString *urlString = @"https://nj01ct01.baidupcs.com/file/67e08e7b3db5bd550eb2c3077bc9341d?bkt=p3-140067e08e7b3db5bd550eb2c3077bc9341da3ab7671000000286647&fid=2670780510-250528-430066337834612&time=1490925577&sign=FDTAXGERLBHS-DCb740ccc5511e5e8fedcff06b081203-ynnDfmURQoHm1ksi04t87Q6BnmE%3D&to=63&size=2647623&sta_dx=2647623&sta_cs=3&sta_ft=mp3&sta_ct=0&sta_mt=0&fm2=MH,Yangquan,Netizen-anywhere,,beijingct&newver=1&newfm=1&secfm=1&flow_ver=3&pkey=140067e08e7b3db5bd550eb2c3077bc9341da3ab7671000000286647&sl=75563087&expires=8h&rt=pr&r=208841595&mlogid=2073818771479878195&vuk=2670780510&vbdid=3060741257&fin=test.mp3&fn=test.mp3&rtype=1&iv=0&dp-logid=2073818771479878195&dp-callid=0.1.1&hps=1&csl=350&csign=KyHZ%2FVszqDUGhAcfQwZG0kv%2BHio%3D&by=themis";
+    [[JZJAudioPlayManager shareInstance] playWithPath:urlString completion:^(JZJAudioPlayError error) {
+        NSLog(@"error = %d",error);
+    }];
 }
 
 -(void)playButtonClick
 {
-    [[JZJAVPlayerManager shareInstance] play];
+    [[JZJAudioPlayManager shareInstance] resume];
 }
 
 -(void)pauseButtonClick
 {
-    [[JZJAVPlayerManager shareInstance] pause];
+    [[JZJAudioPlayManager shareInstance] pause];
+}
+
+-(void)stopButtonClick
+{
+    [[JZJAudioPlayManager shareInstance] stop];
 }
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
 }
-
-/*
-#pragma mark - Navigation
-
-// In a storyboard-based application, you will often want to do a little preparation before navigation
-- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
-    // Get the new view controller using [segue destinationViewController].
-    // Pass the selected object to the new view controller.
-}
-*/
 
 @end

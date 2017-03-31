@@ -7,9 +7,6 @@
 //
 
 #import "SecondViewController.h"
-#import "ZZAudioRecorderUtil.h"
-#import "ZZAudioPlayerUtil.h"
-#import "ZZDeviceManager.h"
 #import "CustomCellModel.h"
 #import "CustomCell.h"
 #import "JZJAudioRecordManager.h"
@@ -84,13 +81,13 @@
     if ([[JZJAudioPlayManager shareInstance] isPlaying]) {
         if (model == _previousSelectedModel) {//选中的是正在播放的语音
             model.isPlaying = NO;
-            [[JZJAudioPlayManager shareInstance] stopPlay];
+            [[JZJAudioPlayManager shareInstance] stop];
         }
         else{
             _previousSelectedModel.isPlaying = NO;
             model.isPlaying = YES;
             _previousSelectedModel = model;
-            [[JZJAudioPlayManager shareInstance] stopPlay];
+            [[JZJAudioPlayManager shareInstance] stop];
             [self playAudioWithModel:model];
         }
     }

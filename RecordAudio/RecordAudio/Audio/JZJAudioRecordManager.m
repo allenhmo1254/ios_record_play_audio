@@ -9,6 +9,7 @@
 #import "JZJAudioRecordManager.h"
 #import <AVFoundation/AVFoundation.h>
 #import "JZJTranscodingManager.h"
+#import "JZJAudioSession.h"
 
 #define RECORD_MIN_DURATION     1.0
 
@@ -18,8 +19,6 @@ static JZJAudioRecordManager *instance = nil;
 {
     NSDate *_recorderStartDate;
     NSDate *_recorderEndDate;
-    NSString *_currCategory;
-    BOOL _currActive;
     NSString *_recordPath;
 }
 
@@ -84,7 +83,7 @@ static JZJAudioRecordManager *instance = nil;
                              stringByAppendingPathExtension:@"caf"];
     NSURL *aacUrl = [[NSURL alloc] initFileURLWithPath:aacFilePath];
     //设置智能录音的模式
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryRecord isActive:YES];
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryRecord isActive:YES];
     //设置开始录音的时间戳
     _recorderStartDate = [NSDate date];
     //初始化AVAudioRecorder
@@ -169,7 +168,7 @@ static JZJAudioRecordManager *instance = nil;
     }
     _audioRecorder = nil;
     _recoredFinish = nil;
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
 }
 
 - (NSDictionary *)recoredSettings
@@ -228,36 +227,6 @@ static JZJAudioRecordManager *instance = nil;
     return ret;
 }
 
--(JZJAudioRecordError)_setupAudioSessionCategory:(NSString *)sessionCategory
-                              isActive:(BOOL)isActive
-{
-    BOOL isNeedActive = NO;
-    if (isActive != _currActive) {
-        isNeedActive = YES;
-        _currActive = isActive;
-    }
-    
-    NSError *error = nil;
-    JZJAudioRecordError returnError = JZJAudioRecordError_None;
-    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
-    // 如果当前category等于要设置的，不需要再设置
-    if (![_currCategory isEqualToString:sessionCategory]) {
-        [audioSession setCategory:sessionCategory error:nil];
-    }
-    if (isNeedActive) {
-        BOOL success = [audioSession setActive:isActive
-                                   withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
-                                         error:&error];
-        if(!success || error){
-            returnError = JZJAudioRecordError_SetActive;
-            return returnError;
-        }
-    }
-    _currCategory = sessionCategory;
-    
-    return returnError;
-}
-
 #pragma mark - AVAudioRecorderDelegate
 
 - (void)audioRecorderDidFinishRecording:(AVAudioRecorder *)recorder
@@ -274,7 +243,7 @@ static JZJAudioRecordManager *instance = nil;
     }
     self.audioRecorder = nil;
     self.recoredFinish = nil;
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
 }
 
 - (void)audioRecorderEncodeErrorDidOccur:(AVAudioRecorder *)recorder

@@ -39,15 +39,11 @@ typedef enum {
 /**
  停止播放音频
  */
--(void)stop;
+-(void)stopPlay;
 
 /**
  是否正在播放
  */
 -(BOOL)isPlaying;
-
--(void)pause;
-
--(void)resume;
 
 @end

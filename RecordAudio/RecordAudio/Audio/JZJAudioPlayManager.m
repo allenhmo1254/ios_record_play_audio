@@ -8,16 +8,14 @@
 
 #import "JZJAudioPlayManager.h"
 #import <AVFoundation/AVFoundation.h>
+#import "JZJAudioSession.h"
+#import "AudioPlayer.h"
 
 static JZJAudioPlayManager *instance = nil;
 
-@interface JZJAudioPlayManager ()<AVAudioPlayerDelegate>
-{
-    NSString *_currCategory;
-    BOOL _currActive;
-}
+@interface JZJAudioPlayManager ()<AudioPlayerDelegate>
 
-@property(nonatomic, strong)AVAudioPlayer *audioPlayer;
+@property(nonatomic, strong)AudioPlayer *audioPlayer;
 @property(nonatomic, copy)void(^playFinish)(JZJAudioPlayError error);
 
 @end
@@ -34,121 +32,160 @@ static JZJAudioPlayManager *instance = nil;
     }
 }
 
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        [self _initData];
+    }
+    return self;
+}
+
+- (void)dealloc
+{
+    _audioPlayer = nil;
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
 -(void)playWithPath:(NSString *)path
          completion:(void(^)(JZJAudioPlayError error))completon
 {
-    if (_audioPlayer.isPlaying) {
-        [self stopPlay];
+    if (_audioPlayer.state == AudioPlayerStatePlaying) {
+        [self stop];
     }
     
-    NSFileManager * fm = [NSFileManager defaultManager];
     _playFinish = completon;
-    NSError *error = nil;
-    if (![fm fileExistsAtPath:path]) {
-        error = [NSError errorWithDomain:@"file path not exist" code:0 userInfo:nil];
-        if (_playFinish) {
-            _playFinish(JZJAudioPlayError_PathNotExist);
-            _playFinish = nil;
-        }
-        return;
-    }
     
-    NSURL *url = [[NSURL alloc] initFileURLWithPath:path];
-    self.audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:&error];
-    if (error || !_audioPlayer) {
-        error = [NSError errorWithDomain:NSLocalizedString(@"error.initPlayerFail", @"Failed to initialize AVAudioPlayer")
-                                    code:0
-                                userInfo:nil];
-        if (_playFinish) {
-            _playFinish(JZJAudioPlayError_Init);
-            _playFinish = nil;
-        }
-        return;
-    }
-    _audioPlayer.delegate = self;
-    [_audioPlayer prepareToPlay];
-    [_audioPlayer play];
+    NSURL *url = [NSURL URLWithString:path];
+    [self.audioPlayer play:url];
     
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryPlayback isActive:YES];
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryPlayback isActive:YES];
 }
 
--(void)stopPlay
+-(void)stop
 {
-    if(_audioPlayer){
-        _audioPlayer.delegate = nil;
+    if(_audioPlayer)
         [_audioPlayer stop];
-        _audioPlayer = nil;
-    }
-    if (_playFinish) {
-        _playFinish = nil;
-    }
     
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
 }
 
 -(BOOL)isPlaying
 {
-    return _audioPlayer.isPlaying;
+    return _audioPlayer.state == AudioPlayerStatePlaying;
+}
+
+-(void)pause
+{
+    if (_audioPlayer.state != AudioPlayerStatePlaying) {
+        return;
+    }
+    
+    [_audioPlayer pause];
+}
+
+-(void)resume
+{
+    if (_audioPlayer.state != AudioPlayerStatePaused) {
+        return;
+    }
+    
+    [_audioPlayer resume];
 }
 
 #pragma mark - private
 
--(JZJAudioPlayError)_setupAudioSessionCategory:(NSString *)sessionCategory
-                                        isActive:(BOOL)isActive
+-(void)_initData
 {
-    BOOL isNeedActive = NO;
-    if (isActive != _currActive) {
-        isNeedActive = YES;
-        _currActive = isActive;
-    }
-    
-    NSError *error = nil;
-    JZJAudioPlayError returnError = JZJAudioPlayError_None;
-    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
-    // 如果当前category等于要设置的，不需要再设置
-    if (![_currCategory isEqualToString:sessionCategory]) {
-        [audioSession setCategory:sessionCategory error:nil];
-    }
-    if (isNeedActive) {
-        BOOL success = [audioSession setActive:isActive
-                                   withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
-                                         error:&error];
-        if(!success || error){
-            returnError = JZJAudioPlayError_SetActive;
-            return returnError;
+    _audioPlayer = [[AudioPlayer alloc] init];
+    _audioPlayer.delegate = self;
+    [self _addObservers];
+}
+
+-(void)_addObservers
+{
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(audioRouteChangeListenerCallback:) name:AVAudioSessionRouteChangeNotification object:nil];
+}
+
+#pragma mark - NSNotification
+
+- (void)audioRouteChangeListenerCallback:(NSNotification*)notification
+{
+    NSDictionary *interuptionDict = notification.userInfo;
+    NSInteger routeChangeReason = [[interuptionDict valueForKey:AVAudioSessionRouteChangeReasonKey] integerValue];
+    switch (routeChangeReason) {
+        case AVAudioSessionRouteChangeReasonNewDeviceAvailable://一种新设备可用（如耳机已插上）
+        {
+            
         }
+            break;
+        case AVAudioSessionRouteChangeReasonOldDeviceUnavailable://旧设备变得不可用（例如耳机已拔出）
+        {
+            [self resume];
+        }
+            break;
+        case AVAudioSessionRouteChangeReasonCategoryChange://音频类型发生了变化（如avaudiosessioncategoryplayback已改为avaudiosessioncategoryplayandrecord）
+            // called at start - also when other audio wants to play
+            NSLog(@"AVAudioSessionRouteChangeReasonCategoryChange");
+            break;
+        case AVAudioSessionRouteChangeReasonOverride://这条路线已被重写（例如类是avaudiosessioncategoryplayandrecord和输出已经改变了从接收器，这是默认的扬声器）。
+        {
+            
+        }
+            break;
     }
-    _currCategory = sessionCategory;
-    
-    return returnError;
 }
 
-#pragma mark - AVAudioPlayerDelegate
-- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player
-                       successfully:(BOOL)flag
+#pragma mark - AudioPlayerDelegate
+
+-(void)audioPlayer:(AudioPlayer*)audioPlayer stateChanged:(AudioPlayerState)state
 {
-    if (_playFinish) {
-        _playFinish(JZJAudioPlayError_None);
-    }
-    if (_audioPlayer) {
-        _audioPlayer.delegate = nil;
-        _audioPlayer = nil;
-    }
-    _playFinish = nil;
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
+    NSLog(@"状态变化 = %d",state);
 }
 
-- (void)audioPlayerDecodeErrorDidOccur:(AVAudioPlayer *)player
-                                 error:(NSError *)error
+-(void)audioPlayer:(AudioPlayer*)audioPlayer didEncounterError:(AudioPlayerErrorCode)errorCode
 {
+    NSLog(@"播放出错 = %d",errorCode);
     if (_playFinish) {
         _playFinish(JZJAudioPlayError_Play);
+        _playFinish = nil;
     }
-    if (_audioPlayer) {
-        _audioPlayer.delegate = nil;
-        _audioPlayer = nil;
-    }
-    [self _setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
 }
+
+-(void)audioPlayer:(AudioPlayer*)audioPlayer didStartPlayingQueueItemId:(NSObject*)queueItemId
+{
+    NSLog(@"开始播放音频 = %@",queueItemId);
+}
+
+-(void)audioPlayer:(AudioPlayer*)audioPlayer didFinishBufferingSourceWithQueueItemId:(NSObject*)queueItemId
+{
+    NSLog(@"缓冲完成 = %@",queueItemId);
+}
+
+-(void)audioPlayer:(AudioPlayer*)audioPlayer didFinishPlayingQueueItemId:(NSObject*)queueItemId withReason:(AudioPlayerStopReason)stopReason andProgress:(double)progress andDuration:(double)duration
+{
+    NSLog(@"停止播放音频 = %@",queueItemId);
+    if (_playFinish) {
+        _playFinish(JZJAudioPlayError_None);
+        _playFinish = nil;
+    }
+    [[JZJAudioSession shareInstance] setupAudioSessionCategory:AVAudioSessionCategoryAmbient isActive:NO];
+}
+
+//-(void)audioPlayer:(AudioPlayer*)audioPlayer logInfo:(NSString*)line
+//{
+//    NSLog(@"音频信息 = %@",line);
+//}
+//
+//-(void)audioPlayer:(AudioPlayer*)audioPlayer internalStateChanged:(AudioPlayerInternalState)state
+//{
+//    NSLog(@"内部状态变化 = %d",state);
+//}
+//
+//-(void)audioPlayer:(AudioPlayer*)audioPlayer didCancelQueuedItems:(NSArray*)queuedItems
+//{
+//    NSLog(@"清空队列 = %@",queuedItems);
+//}
 
 @end

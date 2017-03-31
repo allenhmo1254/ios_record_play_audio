@@ -7,8 +7,8 @@
 //
 
 #import "RootViewController.h"
-#import "FirstViewController.h"
 #import "SecondViewController.h"
+#import "AVPlayerViewController.h"
 @interface RootViewController ()
 
 @end
@@ -48,17 +48,17 @@
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
     }
     if (indexPath.row == 0) {
-        cell.textLabel.text = @"demo";
+        cell.textLabel.text = @"player";
     }
     if (indexPath.row == 1) {
-        cell.textLabel.text = @"demo1";
+        cell.textLabel.text = @"recorder";
     }
     return cell;
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
     if (indexPath.row == 0) {
-        [self.navigationController pushViewController:[[FirstViewController alloc]init] animated:YES];
+        [self.navigationController pushViewController:[[AVPlayerViewController alloc]init] animated:YES];
     }
     if (indexPath.row == 1) {
         [self.navigationController pushViewController:[[SecondViewController alloc] init] animated:YES];
